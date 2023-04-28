@@ -1,9 +1,10 @@
-Shader "Custom/MangaLines" {
+Shader "Custom/MangaLines" 
+{
     Properties 
     {
         _MainTex ("Texture", 2D) = "white" {}
-        _LineColor ("Line Color", Color) = (1,1,1,1)
-        _LineWidth ("Line Width", Range(0.001, 0.1)) = 0.01
+        _Color ("Color", Color) = (1,1,1,1)
+        _Speed ("Speed", Range(0.0, 10.0)) = 1.0
     }
 
     SubShader 
@@ -11,54 +12,39 @@ Shader "Custom/MangaLines" {
         Tags { "RenderType"="Opaque" }
         LOD 100
 
-        Pass 
+        CGPROGRAM
+        #pragma surface surf Lambert
+
+        sampler2D _MainTex;
+        fixed4 _Color;
+        float _Speed;
+
+        struct Input 
         {
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
+            float2 uv_MainTex;
+            float3 worldPos;
+            float3 worldNormal;
+            float3 worldTangent;
+            float3 worldBinormal;
+        };
 
-            #include "UnityCG.cginc"
+        void surf (Input IN, inout SurfaceOutput o) 
+        {
+            fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
+            o.Albedo = c.rgb;
+            o.Alpha = c.a;
 
-            struct appdata 
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
+            float4 worldPos = mul(unity_ObjectToWorld, float4(IN.worldPos, 1.0));
+            float3 worldVelocity = UnityObjectToClipPos(UnityGetVelocity(worldPos.xyz));
+            float3 offset = worldVelocity * _Speed;
 
-            struct v2f {
-                float2 uv : TEXCOORD0;
-                float4 vertex : SV_POSITION;
-            };
+            IN.worldPos += offset;
+            IN.worldPos = mul(unity_WorldToObject, float4(IN.worldPos, 1.0)).xyz;
 
-            sampler2D _MainTex;
-            float4 _MainTex_ST;
-
-            float4 _LineColor;
-            float _LineWidth;
-
-            v2f vert (appdata v) 
-            {
-                v2f o;
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                return o;
-            }
-
-            fixed4 frag (v2f i) : SV_Target 
-            {
-                fixed4 color = tex2D(_MainTex, i.uv);
-
-                float2 p = i.uv * _MainTex_ST.xy + _MainTex_ST.zw;
-                float line1 = step(abs(fract(p.x * 20) - 0.5), _LineWidth);
-                float line2 = step(abs(fract(p.y * 20) - 0.5), _LineWidth);
-                float line3 = step(abs(fract(p.x * 20 + p.y * 20) - 0.5), _LineWidth);
-                float line4 = step(abs(fract(p.x * 20 - p.y * 20) - 0.5), _LineWidth);
-                float lines = min(min(line1, line2), min(line3, line4));
-
-                return lerp(color, _LineColor, lines);
-            }
-            ENDCG
+            o.Normal = UnityObjectToWorldNormal(IN.worldNormal);
+            o.Albedo *= c.rgb;
         }
+        ENDCG
     }
     FallBack "Diffuse"
 }
