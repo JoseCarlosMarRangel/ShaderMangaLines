@@ -1,0 +1,7 @@
+Shader "Custom/MangaLines"
+{
+    Properties
+    {
+        
+    }
+}
